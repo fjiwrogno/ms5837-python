@@ -8,6 +8,12 @@ from time import sleep
 # Models
 MODEL_02BA = 0
 MODEL_30BA = 1
+MODEL_UNKNOWN = 255
+
+# context: https://github.com/ArduPilot/ardupilot/pull/29122#issuecomment-2877269114
+MS5837_02BA_MAX_SENSITIVITY = 49000;
+MS5837_02BA_30BA_SEPARATION = 37000;
+MS5837_30BA_MIN_SENSITIVITY = 26000;
 
 # Oversampling options
 OSR_256  = 0
@@ -47,7 +53,7 @@ class MS5837(object):
     _MS5837_CONVERT_D1_256   = 0x40
     _MS5837_CONVERT_D2_256   = 0x50
     
-    def __init__(self, model=MODEL_30BA, bus=1):
+    def __init__(self, model=MODEL_UNKNOWN, bus=1):
         self._model = model
         
         try:
@@ -85,8 +91,27 @@ class MS5837(object):
         if crc != self._crc4(self._C):
             print("PROM read error, CRC failed!")
             return False
+
+        if self._model == MODEL_UNKNOWN:
+            self.auto_detect_model()
         
         return True
+
+    def auto_detect_model(self):
+        """ Automatically detect sensor variant, with a heuristic threshold.
+        
+        Details in https://github.com/ArduPilot/ardupilot/pull/29122#issuecomment-2877269114x
+
+        TODO: include detection of product version / package type, from PROM Word 0, per
+        https://github.com/ArduPilot/ardupilot/pull/29122#pullrequestreview-2837597764
+        """
+        pressure_sensitivity = self._C[1]
+        if MS5837_30BA_MIN_SENSITIVITY <= pressure_sensitivity <= MS5837_02BA_30BA_SEPARATION:
+            self._model = MODEL_30BA
+        elif MS5837_02BA_30BA_SEPARATION < pressure_sensitivity <= MS5837_02BA_MAX_SENSITIVITY:
+            self._model = MODEL_02BA
+        else:
+            self._model = MODEL_UNKNOWN
         
     def read(self, oversampling=OSR_8192):
         if self._bus is None:
@@ -160,10 +185,12 @@ class MS5837(object):
             SENS = self._C[1]*65536+(self._C[3]*dT)/128
             OFF = self._C[2]*131072+(self._C[4]*dT)/64
             self._pressure = (self._D1*SENS/(2097152)-OFF)/(32768)
-        else:
+        elif self._model == MODEL_30BA:
             SENS = self._C[1]*32768+(self._C[3]*dT)/256
             OFF = self._C[2]*65536+(self._C[4]*dT)/128
             self._pressure = (self._D1*SENS/(2097152)-OFF)/(8192)
+        else:
+            raise NotImplementedError("Cannot calculate pressure for unknown model type!")
         
         self._temperature = 2000+dT*self._C[6]/8388608
 
