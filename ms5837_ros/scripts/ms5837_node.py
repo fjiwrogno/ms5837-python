@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 
 import rospy
+import sys
+import os
+
+# Add the parent directory to the path so we can import the ms5837 package
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 import ms5837
 from sensor_msgs.msg import FluidPressure
 from geometry_msgs.msg import PointStamped
@@ -39,10 +45,10 @@ class MS5837Node:
 
         # Publishers
         # self.pressure_pub = rospy.advertise('~pressure', FluidPressure, queue_size=1)
-        self.depth_pub = rospy.advertise('~depth', PointStamped, queue_size=1)
+        self.depth_pub = rospy.Publisher('~depth', PointStamped, queue_size=1)
         
         # Services
-        self.calibrate_srv = rospy.advertise_service('~calibrate', Empty, self.calibrate_callback)
+        self.calibrate_srv = rospy.Service('~calibrate', Empty, self.calibrate_callback)
 
         self.rate = rospy.Rate(self.rate_hz)
 
