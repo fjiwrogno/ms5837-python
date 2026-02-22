@@ -26,7 +26,7 @@ def main():
         return
 
     # Publishers
-    # pressure_pub = rospy.advertise('~pressure', FluidPressure, queue_size=1)
+    pressure_pub = rospy.advertise('~pressure', FluidPressure, queue_size=1)
     depth_pub = rospy.advertise('~depth', PointStamped, queue_size=1)
 
     rate = rospy.Rate(rate_hz)
@@ -39,12 +39,12 @@ def main():
         current_osr = OSR_FAST
         if sensor.read(oversampling=current_osr):
             # # Pressure
-            # pressure_msg = FluidPressure()
-            # pressure_msg.header.stamp = rospy.Time.now()
-            # pressure_msg.header.frame_id = "ms5837_link"
-            # pressure_msg.fluid_pressure = sensor.pressure(ms5837.UNITS_Pa)
-            # pressure_msg.variance = 0 # Unknown
-            # pressure_pub.publish(pressure_msg)
+            pressure_msg = FluidPressure()
+            pressure_msg.header.stamp = rospy.Time.now()
+            pressure_msg.header.frame_id = "ms5837_link"
+            pressure_msg.fluid_pressure = sensor.pressure(ms5837.UNITS_Pa)
+            pressure_msg.variance = 0 # Unknown
+            pressure_pub.publish(pressure_msg)
 
             # Depth
             depth_msg = PointStamped()
