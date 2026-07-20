@@ -20,7 +20,7 @@ class MS5837Node:
         self.bus = 0
         self.fluid_density = 1000 # kg/m^3
         self.rate_hz = 100
-        self.filter_factor = rospy.get_param('~filter_factor', 0.6) # 0.1-1.0, smaller = smoother
+        self.filter_factor = 0.6 # 0.1-1.0, smaller = smoother
         
         # Outlier Rejection Parameters
         self.max_depth = 10.0
@@ -44,7 +44,7 @@ class MS5837Node:
             exit(1)
 
         # Publishers
-        # self.pressure_pub = rospy.advertise('~pressure', FluidPressure, queue_size=1)
+        self.pressure_pub = rospy.Publisher('~pressure', FluidPressure, queue_size=1)
         self.depth_pub = rospy.Publisher('~depth', PointStamped, queue_size=1)
         
         # Services
@@ -68,7 +68,7 @@ class MS5837Node:
     def run(self):
         while not rospy.is_shutdown():
             # Use OSR_FAST (1024) for ~200Hz max rate, fitting well within 100Hz loop
-            current_osr = self.OSR_BALANCE_100hz
+            current_osr = self.OSR_PRECISE
 
             if self.sensor.read(oversampling=current_osr):
                 # Raw depth from sensor
@@ -97,7 +97,13 @@ class MS5837Node:
                 # 4. Apply Calibration Offset (Tare)
                 final_depth = self.filtered_depth - self.depth_offset
 
-                # 5. Publish Depth
+                # 5. Publish Pressure&&Depth
+                pressure_msg = FluidPressure()
+                pressure_msg.header.stamp = rospy.Time.now()
+                pressure_msg.header.frame_id = "depth_sensor_link"
+                pressure_msg.fluid_pressure = self.sensor.pressure() # in mbar
+                self.pressure_pub.publish(pressure_msg)
+
                 depth_msg = PointStamped()
                 depth_msg.header.stamp = rospy.Time.now()
                 depth_msg.header.frame_id = "depth_sensor_link"
